@@ -1,0 +1,62 @@
+{
+    "name": "keenthekeen/oauth-helper",
+    "description": "Keycloak OAuth/OIDC helpers for Laravel apps: bearer-token guard, client-credentials tokens, service-to-service calls, SSO session tracking with back-channel logout, Admin API user directory, Thai names and MCP authorization.",
+    "type": "library",
+    "license": "proprietary",
+    "keywords": ["laravel", "keycloak", "oauth", "oidc", "mcp"],
+    "require": {
+        "php": "^8.3",
+        "firebase/php-jwt": "^7.0",
+        "guzzlehttp/guzzle": "^7.8",
+        "illuminate/auth": "^13.0",
+        "illuminate/cache": "^13.0",
+        "illuminate/database": "^13.0",
+        "illuminate/http": "^13.0",
+        "illuminate/routing": "^13.0",
+        "illuminate/support": "^13.0",
+        "socialiteproviders/openidconnect": "^1.0",
+        "symfony/cache": "^7.2 || ^8.0"
+    },
+    "require-dev": {
+        "laravel/mcp": "^1.0",
+        "laravel/pint": "^1.13",
+        "orchestra/testbench": "^11.0",
+        "pestphp/pest": "^4.0 || ^5.0",
+        "pestphp/pest-plugin-laravel": "^4.0 || ^5.0"
+    },
+    "suggest": {
+        "laravel/mcp": "To serve an MCP server authorized by Keycloak (see the Mcp namespace)"
+    },
+    "autoload": {
+        "psr-4": {
+            "Keenthekeen\\OAuthHelper\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Keenthekeen\\OAuthHelper\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Keenthekeen\\OAuthHelper\\OAuthHelperServiceProvider"
+            ],
+            "aliases": {
+                "Keycloak": "Keenthekeen\\OAuthHelper\\Facades\\Keycloak"
+            }
+        }
+    },
+    "scripts": {
+        "test": "pest",
+        "lint": "pint --test"
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

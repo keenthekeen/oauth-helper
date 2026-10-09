@@ -1,0 +1,26 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration {
+    /**
+     * Maps local sessions to the Keycloak SSO session (sid) they signed in with, so a back-channel logout
+     * from Keycloak can destroy the right local sessions. One sid can have several local sessions:
+     * session cookies are per host, so signing in on each of the app's domains creates one each.
+     */
+    public function up(): void {
+        Schema::create('oidc_sessions', function (Blueprint $table) {
+            $table->string('session_id')->primary();
+            $table->string('sid')->index();
+            $table->string('sub')->index();
+            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+            $table->timestamps();
+        });
+    }
+
+    public function down(): void {
+        Schema::dropIfExists('oidc_sessions');
+    }
+};
