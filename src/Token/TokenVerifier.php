@@ -8,20 +8,20 @@ use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
 use GuzzleHttp\Client;
 use GuzzleHttp\Psr7\HttpFactory;
+use Keenthekeen\OAuthHelper\AuthorizationServer;
 use Keenthekeen\OAuthHelper\Exceptions\InvalidTokenException;
-use Keenthekeen\OAuthHelper\Realm;
 use Psr\Cache\CacheItemPoolInterface;
 use Throwable;
 
 /**
- * Verifies Keycloak-issued JWTs: signature against the realm's JWKS, time claims, issuer and audience.
+ * Verifies JWTs issued by the authorization server: signature against its JWKS, time claims, issuer and audience.
  */
 class TokenVerifier {
     /**
-     * @param  array{keys: array<int, array<string, mixed>>}|null  $jwks  Fixed signing keys; when null, the realm's JWKS is fetched and cached
+     * @param  array{keys: array<int, array<string, mixed>>}|null  $jwks  Fixed signing keys; when null, the server's JWKS is fetched and cached
      */
     public function __construct(
-        protected Realm $realm,
+        protected AuthorizationServer $server,
         protected CacheItemPoolInterface $cache,
         protected int $leeway = 10,
         protected int $jwksCacheTtl = 600,
@@ -42,7 +42,7 @@ class TokenVerifier {
     public function verify(string $jwt, string|callable|null $audience = null): array {
         $claims = $this->decode($jwt);
 
-        if (($claims['iss'] ?? null) !== $this->realm->issuer()) {
+        if (($claims['iss'] ?? null) !== $this->server->issuer()) {
             throw new InvalidTokenException('Invalid token issuer.');
         }
 
@@ -97,7 +97,7 @@ class TokenVerifier {
         }
 
         return new CachedKeySet(
-            jwksUri: $this->realm->jwksUrl(),
+            jwksUri: $this->server->jwksUrl(),
             httpClient: new Client($this->httpOptions),
             httpFactory: new HttpFactory,
             cache: $this->cache,

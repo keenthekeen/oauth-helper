@@ -5,20 +5,20 @@ namespace Keenthekeen\OAuthHelper\Testing;
 use Firebase\JWT\JWT;
 use Illuminate\Container\Container;
 use Illuminate\Support\Facades\Http;
-use Keenthekeen\OAuthHelper\Contracts\UserDirectory;
+use Keenthekeen\OAuthHelper\AuthorizationServer;
+use Keenthekeen\OAuthHelper\Directory\UserDirectory;
 use Keenthekeen\OAuthHelper\Mcp\McpResource;
-use Keenthekeen\OAuthHelper\Realm;
 use Keenthekeen\OAuthHelper\Token\TokenVerifier;
 
 /**
- * A stand-in Keycloak realm for tests: signs tokens with a throwaway key the app trusts,
+ * A stand-in authorization server for tests: signs tokens with a throwaway key the app trusts,
  * fakes the token endpoint, and swaps the user directory for an in-memory one.
  *
- *     $keycloak = FakeKeycloak::install();
- *     $this->withToken($keycloak->apiToken(scopes: ['students_basic']))->postJson('/graphql', ...);
+ *     $server = FakeOAuthServer::install();
+ *     $this->withToken($server->apiToken(scopes: ['students_basic']))->postJson('/graphql', ...);
  */
-class FakeKeycloak {
-    public const ISSUER = 'https://keycloak.test/realms/test';
+class FakeOAuthServer {
+    public const ISSUER = 'https://auth.test/realms/test';
 
     protected string $privateKey;
 
@@ -41,20 +41,20 @@ class FakeKeycloak {
     }
 
     /**
-     * Point the app at the fake realm and trust its signing key.
+     * Point the app at the fake server and trust its signing key.
      */
     public static function install(): self {
         $fake = new self;
         $app = Container::getInstance();
 
         config([
-            'oauth-helper.base_url' => 'https://keycloak.test',
-            'oauth-helper.realm' => 'test',
-            'oauth-helper.issuer' => null,
+            'oauth-helper.issuer' => self::ISSUER,
+            'oauth-helper.jwks_url' => null,
+            'oauth-helper.token_endpoint' => null,
         ]);
 
         $app->bind(TokenVerifier::class, fn ($app) => new TokenVerifier(
-            realm: $app->make(Realm::class),
+            server: $app->make(AuthorizationServer::class),
             cache: $app->make('cache.psr6'),
             leeway: (int) config('oauth-helper.leeway'),
             jwks: $fake->jwks,
@@ -64,7 +64,7 @@ class FakeKeycloak {
     }
 
     /**
-     * Sign a token with the fake realm's key. Defaults to a valid, unexpired token from the fake issuer.
+     * Sign a token with the fake server's key. Defaults to a valid, unexpired token from the fake issuer.
      *
      * @param  array<string, mixed>  $claims
      */
@@ -115,7 +115,7 @@ class FakeKeycloak {
      */
     public function fakeTokenEndpoint(int $expiresIn = 300): self {
         Http::fake([
-            app(Realm::class)->tokenEndpoint() => fn () => Http::response([
+            app(AuthorizationServer::class)->tokenEndpoint() => fn () => Http::response([
                 'access_token' => $this->token(['azp' => 'this-app']),
                 'token_type' => 'Bearer',
                 'expires_in' => $expiresIn,
@@ -131,7 +131,7 @@ class FakeKeycloak {
      * @param  array<int, array<string, mixed>>  $users  UserRepresentations, as the Admin API returns them
      */
     public function fakeUsers(array $users): FakeUserDirectory {
-        $directory = new FakeUserDirectory($users, (array) config('oauth-helper.admin.attributes'), (int) config('oauth-helper.admin.min_query_length'));
+        $directory = new FakeUserDirectory($users, (array) config('oauth-helper.directory.attributes'), (int) config('oauth-helper.directory.min_query_length'));
         Container::getInstance()->instance(UserDirectory::class, $directory);
 
         return $directory;

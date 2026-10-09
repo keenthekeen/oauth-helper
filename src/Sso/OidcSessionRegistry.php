@@ -9,7 +9,7 @@ use Illuminate\Support\Lottery;
 use Laravel\Socialite\Facades\Socialite;
 
 /**
- * Tracks which local sessions belong to which Keycloak SSO session, so that a back-channel logout
+ * Tracks which local sessions belong to which SSO session of the authorization server, so that a back-channel logout
  * (OpenID Connect Back-Channel Logout 1.0) can destroy them, and keeps the id_token for RP-initiated logout.
  */
 class OidcSessionRegistry {
@@ -40,7 +40,7 @@ class OidcSessionRegistry {
         }
 
         // Prune by age rather than by looking up the sessions table, which only exists with the database
-        // session driver: an SSO session cannot outlive the realm's SSO Session Max.
+        // session driver: an SSO session cannot outlive the server's maximum SSO session lifetime.
         Lottery::odds(...config('session.lottery', [2, 100]))
             ->winner(fn () => $this->prune())
             ->choose();
@@ -59,8 +59,8 @@ class OidcSessionRegistry {
     }
 
     /**
-     * URL of Keycloak's end-session endpoint (RP-initiated logout). With the id_token from forget() as
-     * id_token_hint, Keycloak logs the user out without asking for confirmation.
+     * URL of the server's end-session endpoint (RP-initiated logout). With the id_token from forget() as
+     * id_token_hint, the server can log the user out without asking for confirmation.
      */
     public function logoutUrl(?string $idToken, string $postLogoutRedirectUri): string {
         return Socialite::driver(config('oauth-helper.sso.driver'))
@@ -89,7 +89,7 @@ class OidcSessionRegistry {
     }
 
     /**
-     * Delete mappings older than SSO Session Max, which Keycloak can no longer log out.
+     * Delete mappings older than the maximum SSO session lifetime, which the server can no longer log out.
      */
     public function prune(): int {
         return OidcSession::where('created_at', '<', now()->subSeconds($this->sessionMax))->delete();

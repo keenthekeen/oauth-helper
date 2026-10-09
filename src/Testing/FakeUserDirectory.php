@@ -5,16 +5,16 @@ namespace Keenthekeen\OAuthHelper\Testing;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
-use Keenthekeen\OAuthHelper\Admin\KeycloakUser;
-use Keenthekeen\OAuthHelper\Admin\SearchMode;
-use Keenthekeen\OAuthHelper\Contracts\UserDirectory;
+use Keenthekeen\OAuthHelper\Directory\DirectoryUser;
+use Keenthekeen\OAuthHelper\Directory\SearchMode;
+use Keenthekeen\OAuthHelper\Directory\UserDirectory;
 use PHPUnit\Framework\Assert;
 
 /**
- * In-memory user directory for tests, matching like Keycloak does (case-insensitive).
+ * In-memory user directory for tests, matching case-insensitively like Keycloak's.
  */
 class FakeUserDirectory implements UserDirectory {
-    /** @var Collection<int, KeycloakUser> */
+    /** @var Collection<int, DirectoryUser> */
     protected Collection $users;
 
     /** @var array<int, string> */
@@ -25,7 +25,7 @@ class FakeUserDirectory implements UserDirectory {
      * @param  array<int, string>  $attributes
      */
     public function __construct(array $users = [], array $attributes = [], protected int $minQueryLength = 3) {
-        $this->users = collect($users)->map(fn (array $user, int $i) => KeycloakUser::fromRepresentation(
+        $this->users = collect($users)->map(fn (array $user, int $i) => DirectoryUser::fromRepresentation(
             ['id' => $user['id'] ?? 'user-'.$i, 'enabled' => true, ...$user],
             $attributes,
         ));
@@ -39,20 +39,20 @@ class FakeUserDirectory implements UserDirectory {
         return $this->matching($query, $mode)->count();
     }
 
-    public function find(string $id): ?KeycloakUser {
+    public function find(string $id): ?DirectoryUser {
         return $this->users->firstWhere('id', $id);
     }
 
-    public function findByUsername(string $username): ?KeycloakUser {
-        return $this->users->first(fn (KeycloakUser $user) => Str::lower($user->username) === Str::lower($username));
+    public function findByUsername(string $username): ?DirectoryUser {
+        return $this->users->first(fn (DirectoryUser $user) => Str::lower($user->username) === Str::lower($username));
     }
 
-    public function findByEmail(string $email): ?KeycloakUser {
-        return $this->users->first(fn (KeycloakUser $user) => Str::lower((string) $user->email) === Str::lower($email));
+    public function findByEmail(string $email): ?DirectoryUser {
+        return $this->users->first(fn (DirectoryUser $user) => Str::lower((string) $user->email) === Str::lower($email));
     }
 
     public function findByAttribute(string $name, string $value, int $max = 10): Collection {
-        return $this->users->filter(fn (KeycloakUser $user) => in_array($value, $user->attributes[$name] ?? [], true))
+        return $this->users->filter(fn (DirectoryUser $user) => in_array($value, $user->attributes[$name] ?? [], true))
             ->take($max)
             ->values();
     }
@@ -62,7 +62,7 @@ class FakeUserDirectory implements UserDirectory {
     }
 
     /**
-     * @return Collection<int, KeycloakUser>
+     * @return Collection<int, DirectoryUser>
      */
     protected function matching(string $query, SearchMode $mode): Collection {
         $query = trim(str_replace(['*', '"'], '', $query));
@@ -72,7 +72,7 @@ class FakeUserDirectory implements UserDirectory {
         $this->searches[] = $query;
         $query = Str::lower($query);
 
-        return $this->users->filter(function (KeycloakUser $user) use ($query, $mode) {
+        return $this->users->filter(function (DirectoryUser $user) use ($query, $mode) {
             foreach ([$user->username, $user->email, $user->firstName, $user->lastName] as $field) {
                 $field = Str::lower((string) $field);
                 $matches = match ($mode) {

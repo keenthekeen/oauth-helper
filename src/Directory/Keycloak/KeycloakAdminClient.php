@@ -1,36 +1,49 @@
 <?php
 
-namespace Keenthekeen\OAuthHelper\Admin;
+namespace Keenthekeen\OAuthHelper\Directory\Keycloak;
 
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Factory as Http;
 use Illuminate\Http\Client\Response;
 use Keenthekeen\OAuthHelper\Client\ClientCredentials;
-use Keenthekeen\OAuthHelper\Exceptions\AdminApiException;
-use Keenthekeen\OAuthHelper\Realm;
+use Keenthekeen\OAuthHelper\Exceptions\DirectoryException;
 
 /**
- * Read-only access to the Keycloak Admin REST API of the configured realm, authenticated as the admin client's
- * service account. Give that client only the realm-management roles it needs (view-users for the user directory).
+ * Read-only access to the Keycloak Admin REST API of one realm, authenticated as the directory client's service
+ * account. Give that client only the realm-management roles it needs (view-users for the user directory).
  */
-class AdminClient {
+class KeycloakAdminClient {
     /**
      * @param  array<string, mixed>  $httpOptions
      */
     public function __construct(
-        protected Realm $realm,
+        protected string $adminUrl,
         protected ClientCredentials $credentials,
         protected Http $http,
-        protected string $client = 'admin',
+        protected string $client = 'directory',
         protected array $httpOptions = [],
-    ) {}
+    ) {
+        $this->adminUrl = rtrim($adminUrl, '/');
+    }
 
     /**
-     * GET a path under /admin/realms/{realm}. Returns null for 404.
+     * Admin URL of the realm an issuer belongs to: "{base}/realms/{realm}" becomes "{base}/admin/realms/{realm}".
+     */
+    public static function adminUrlFromIssuer(string $issuer): string {
+        $adminUrl = preg_replace('#/realms/([^/]+)/?$#', '/admin/realms/$1', $issuer, 1, $count);
+        if ($count !== 1) {
+            throw new DirectoryException("Cannot derive the Keycloak admin URL from the issuer \"$issuer\"; set KEYCLOAK_ADMIN_URL.");
+        }
+
+        return $adminUrl;
+    }
+
+    /**
+     * GET a path under the realm's admin URL. Returns null for 404.
      *
      * @param  array<string, mixed>  $query
      *
-     * @throws AdminApiException
+     * @throws DirectoryException
      */
     public function get(string $path, array $query = []): mixed {
         $response = $this->send($path, $query);
@@ -44,8 +57,8 @@ class AdminClient {
             return null;
         }
         if (! $response->successful()) {
-            throw new AdminApiException(match ($response->status()) {
-                401, 403 => 'The Keycloak admin client is not allowed to read '.$path.'. Check its service-account roles.',
+            throw new DirectoryException(match ($response->status()) {
+                401, 403 => 'The directory client is not allowed to read '.$path.'. Check its service-account roles.',
                 default => 'The Keycloak Admin API failed to read '.$path.'.',
             }." (HTTP {$response->status()})", $response->status());
         }
@@ -56,16 +69,16 @@ class AdminClient {
     /**
      * @param  array<string, mixed>  $query
      *
-     * @throws AdminApiException
+     * @throws DirectoryException
      */
     protected function send(string $path, array $query): Response {
         try {
             return $this->http->withOptions($this->httpOptions)
                 ->acceptJson()
                 ->withToken($this->credentials->token(client: $this->client))
-                ->get($this->realm->adminUrl($path), $query);
+                ->get($this->adminUrl.'/'.ltrim($path, '/'), $query);
         } catch (ConnectionException $e) {
-            throw new AdminApiException('Cannot connect to Keycloak: '.$e->getMessage());
+            throw new DirectoryException('Cannot connect to Keycloak: '.$e->getMessage());
         }
     }
 }

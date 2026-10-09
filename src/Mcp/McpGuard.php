@@ -12,10 +12,10 @@ use Keenthekeen\OAuthHelper\Token\StrongAuth;
 use Keenthekeen\OAuthHelper\Token\TokenVerifier;
 
 /**
- * Authenticates MCP clients with user-delegated Keycloak access tokens (auth driver "keycloak-mcp").
+ * Authenticates MCP clients with user-delegated OAuth access tokens (auth driver "oauth-mcp").
  *
  * Tokens must be bound to the MCP server's URL (RFC 8707 resource indicator), so tokens issued for other
- * clients in the realm are rejected, and carry the MCP scope the user consented to.
+ * clients of the authorization server are rejected, and carry the MCP scope the user consented to.
  */
 class McpGuard implements Guard {
     /** @var (Closure(array<string, mixed>): ?Authenticatable)|null */

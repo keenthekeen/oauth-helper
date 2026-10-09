@@ -7,17 +7,17 @@ use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Keenthekeen\OAuthHelper\Client\ClientCredentials;
 use Keenthekeen\OAuthHelper\Client\ServiceClient;
-use Keenthekeen\OAuthHelper\Contracts\UserDirectory;
+use Keenthekeen\OAuthHelper\Directory\UserDirectory;
 use Keenthekeen\OAuthHelper\Token\TokenVerifier;
 
 /**
- * Entry point behind the Keycloak facade.
+ * Entry point behind the OAuth facade.
  */
-class Keycloak {
+class OAuth {
     public function __construct(protected Container $app) {}
 
-    public function realm(): Realm {
-        return $this->app->make(Realm::class);
+    public function server(): AuthorizationServer {
+        return $this->app->make(AuthorizationServer::class);
     }
 
     public function users(): UserDirectory {

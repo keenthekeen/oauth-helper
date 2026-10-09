@@ -10,8 +10,8 @@ use InvalidArgumentException;
 use Laravel\Socialite\Facades\Socialite;
 
 /**
- * Back-channel logout endpoint called by Keycloak (OpenID Connect Back-Channel Logout 1.0).
- * Keycloak calls it without cookies or CSRF token: register it with Route::oidcBackchannelLogout(),
+ * Back-channel logout endpoint called by the authorization server (OpenID Connect Back-Channel Logout 1.0).
+ * The server calls it without cookies or CSRF token: register it with Route::oidcBackchannelLogout(),
  * outside the web middleware group.
  */
 class BackchannelLogoutController {

@@ -1,17 +1,17 @@
 <?php
 
-namespace Keenthekeen\OAuthHelper\Admin;
+namespace Keenthekeen\OAuthHelper\Directory;
 
 use Illuminate\Contracts\Support\Arrayable;
 use JsonSerializable;
 use Keenthekeen\OAuthHelper\ThaiName\ThaiName;
 
 /**
- * A user from the Keycloak user directory, with only the allowlisted attributes.
+ * A user from the user directory, with only the allowlisted attributes.
  *
  * @implements Arrayable<string, mixed>
  */
-final readonly class KeycloakUser implements Arrayable, JsonSerializable {
+final readonly class DirectoryUser implements Arrayable, JsonSerializable {
     /**
      * @param  array<string, array<int, string>>  $attributes
      */
@@ -27,7 +27,7 @@ final readonly class KeycloakUser implements Arrayable, JsonSerializable {
     ) {}
 
     /**
-     * @param  array<string, mixed>  $representation  A UserRepresentation from the Admin REST API
+     * @param  array<string, mixed>  $representation  Keycloak's UserRepresentation, or the same keys from another directory
      * @param  array<int, string>  $allowedAttributes
      */
     public static function fromRepresentation(array $representation, array $allowedAttributes = []): self {

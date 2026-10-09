@@ -11,7 +11,7 @@ use Keenthekeen\OAuthHelper\Token\Scopes;
 use Keenthekeen\OAuthHelper\Token\TokenVerifier;
 
 /**
- * Authenticates other services calling this app's API with Keycloak access tokens (auth driver "keycloak").
+ * Authenticates other services calling this app's API with OAuth access tokens (auth driver "oauth").
  * An invalid token, or one meant for another audience, leaves the request unauthenticated.
  */
 class BearerGuard implements Guard {

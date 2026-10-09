@@ -1,15 +1,15 @@
 <?php
 
-namespace Keenthekeen\OAuthHelper\Admin;
+namespace Keenthekeen\OAuthHelper\Directory;
 
 /**
- * How Keycloak matches the search string against username, email, first and last name.
+ * How the search string is matched against username, email, first and last name.
  */
 enum SearchMode {
     /** The field starts with the query */
     case Prefix;
 
-    /** The field contains the query; slower on large realms and LDAP-federated users */
+    /** The field contains the query; slower on large directories and LDAP-federated users */
     case Infix;
 
     /** The field equals the query */

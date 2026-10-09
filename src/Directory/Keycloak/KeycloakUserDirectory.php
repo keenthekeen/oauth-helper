@@ -1,23 +1,25 @@
 <?php
 
-namespace Keenthekeen\OAuthHelper\Admin;
+namespace Keenthekeen\OAuthHelper\Directory\Keycloak;
 
 use Closure;
 use Illuminate\Contracts\Cache\Repository as Cache;
 use Illuminate\Support\Collection;
 use InvalidArgumentException;
-use Keenthekeen\OAuthHelper\Contracts\UserDirectory;
+use Keenthekeen\OAuthHelper\Directory\DirectoryUser;
+use Keenthekeen\OAuthHelper\Directory\SearchMode;
+use Keenthekeen\OAuthHelper\Directory\UserDirectory;
 
 /**
  * User directory backed by the Keycloak Admin REST API (GET /admin/realms/{realm}/users).
- * The admin client needs the realm-management "view-users" role, and nothing more.
+ * The directory client needs the realm-management "view-users" role, and nothing more.
  */
 class KeycloakUserDirectory implements UserDirectory {
     /**
-     * @param  array<int, string>  $attributes  Attributes kept on KeycloakUser
+     * @param  array<int, string>  $attributes  Attributes kept on DirectoryUser
      */
     public function __construct(
-        protected AdminClient $client,
+        protected KeycloakAdminClient $client,
         protected Cache $cache,
         protected int $maxResults = 50,
         protected int $minQueryLength = 3,
@@ -42,20 +44,20 @@ class KeycloakUserDirectory implements UserDirectory {
         return (int) $this->remember('count', $params, fn () => $this->client->get('users/count', $params));
     }
 
-    public function find(string $id): ?KeycloakUser {
+    public function find(string $id): ?DirectoryUser {
         if (! preg_match('/^[A-Za-z0-9-]+$/', $id)) {
             return null;
         }
         $representation = $this->remember('find', [$id], fn () => $this->client->get('users/'.$id));
 
-        return is_array($representation) ? KeycloakUser::fromRepresentation($representation, $this->attributes) : null;
+        return is_array($representation) ? DirectoryUser::fromRepresentation($representation, $this->attributes) : null;
     }
 
-    public function findByUsername(string $username): ?KeycloakUser {
+    public function findByUsername(string $username): ?DirectoryUser {
         return $this->users(['username' => $username, 'exact' => 'true', 'max' => 1])->first();
     }
 
-    public function findByEmail(string $email): ?KeycloakUser {
+    public function findByEmail(string $email): ?DirectoryUser {
         return $this->users(['email' => $email, 'exact' => 'true', 'max' => 1])->first();
     }
 
@@ -75,14 +77,14 @@ class KeycloakUserDirectory implements UserDirectory {
 
     /**
      * @param  array<string, mixed>  $params
-     * @return Collection<int, KeycloakUser>
+     * @return Collection<int, DirectoryUser>
      */
     protected function users(array $params): Collection {
         $representations = $this->remember('users', $params, fn () => $this->client->get('users', $params));
 
         return collect(is_array($representations) ? $representations : [])
             ->filter(fn ($representation) => is_array($representation) and isset($representation['id']))
-            ->map(fn (array $representation) => KeycloakUser::fromRepresentation($representation, $this->attributes))
+            ->map(fn (array $representation) => DirectoryUser::fromRepresentation($representation, $this->attributes))
             ->values();
     }
 

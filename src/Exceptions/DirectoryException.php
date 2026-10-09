@@ -3,9 +3,9 @@
 namespace Keenthekeen\OAuthHelper\Exceptions;
 
 /**
- * The Keycloak Admin REST API refused or failed a request.
+ * The user directory refused or failed a request.
  */
-class AdminApiException extends OAuthHelperException {
+class DirectoryException extends OAuthHelperException {
     public function __construct(string $message, public readonly ?int $status = null) {
         parent::__construct($message);
     }

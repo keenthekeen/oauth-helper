@@ -7,11 +7,11 @@ use Illuminate\Http\Client\Factory as Http;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
-use Keenthekeen\OAuthHelper\Admin\AdminClient;
-use Keenthekeen\OAuthHelper\Admin\KeycloakUserDirectory;
 use Keenthekeen\OAuthHelper\Client\ClientCredentials;
 use Keenthekeen\OAuthHelper\Client\ServiceClient;
-use Keenthekeen\OAuthHelper\Contracts\UserDirectory;
+use Keenthekeen\OAuthHelper\Directory\Keycloak\KeycloakAdminClient;
+use Keenthekeen\OAuthHelper\Directory\Keycloak\KeycloakUserDirectory;
+use Keenthekeen\OAuthHelper\Directory\UserDirectory;
 use Keenthekeen\OAuthHelper\Guard\ApiAudience;
 use Keenthekeen\OAuthHelper\Guard\BearerGuard;
 use Keenthekeen\OAuthHelper\Mcp\McpGuard;
@@ -24,10 +24,10 @@ class OAuthHelperServiceProvider extends ServiceProvider {
     public function register(): void {
         $this->mergeConfigFrom(__DIR__.'/../config/oauth-helper.php', 'oauth-helper');
 
-        $this->app->bind(Realm::class, fn () => Realm::fromConfig());
+        $this->app->bind(AuthorizationServer::class, fn () => AuthorizationServer::fromConfig());
 
         $this->app->bind(TokenVerifier::class, fn (Application $app) => new TokenVerifier(
-            realm: $app->make(Realm::class),
+            server: $app->make(AuthorizationServer::class),
             cache: $app->make('cache.psr6'),
             leeway: (int) config('oauth-helper.leeway'),
             jwksCacheTtl: (int) config('oauth-helper.jwks_cache_ttl'),
@@ -35,7 +35,7 @@ class OAuthHelperServiceProvider extends ServiceProvider {
         ));
 
         $this->app->bind(ClientCredentials::class, fn (Application $app) => new ClientCredentials(
-            realm: $app->make(Realm::class),
+            server: $app->make(AuthorizationServer::class),
             http: $app->make(Http::class),
             cache: $app->make('cache.store'),
             clients: (array) config('oauth-helper.clients'),
@@ -48,21 +48,22 @@ class OAuthHelperServiceProvider extends ServiceProvider {
             httpOptions: (array) config('oauth-helper.http'),
         ));
 
-        $this->app->bind(AdminClient::class, fn (Application $app) => new AdminClient(
-            realm: $app->make(Realm::class),
+        $this->app->bind(KeycloakAdminClient::class, fn (Application $app) => new KeycloakAdminClient(
+            adminUrl: config('oauth-helper.directory.keycloak_admin_url')
+                ?: KeycloakAdminClient::adminUrlFromIssuer($app->make(AuthorizationServer::class)->issuer()),
             credentials: $app->make(ClientCredentials::class),
             http: $app->make(Http::class),
-            client: (string) config('oauth-helper.admin.client'),
-            httpOptions: ['timeout' => config('oauth-helper.admin.timeout')] + (array) config('oauth-helper.http'),
+            client: (string) config('oauth-helper.directory.client'),
+            httpOptions: ['timeout' => config('oauth-helper.directory.timeout')] + (array) config('oauth-helper.http'),
         ));
 
         $this->app->bind(UserDirectory::class, fn (Application $app) => new KeycloakUserDirectory(
-            client: $app->make(AdminClient::class),
+            client: $app->make(KeycloakAdminClient::class),
             cache: $app->make('cache.store'),
-            maxResults: (int) config('oauth-helper.admin.max_results'),
-            minQueryLength: (int) config('oauth-helper.admin.min_query_length'),
-            cacheTtl: (int) config('oauth-helper.admin.cache_ttl'),
-            attributes: (array) config('oauth-helper.admin.attributes'),
+            maxResults: (int) config('oauth-helper.directory.max_results'),
+            minQueryLength: (int) config('oauth-helper.directory.min_query_length'),
+            cacheTtl: (int) config('oauth-helper.directory.cache_ttl'),
+            attributes: (array) config('oauth-helper.directory.attributes'),
         ));
 
         $this->app->bind(OidcSessionRegistry::class, fn () => new OidcSessionRegistry(
@@ -70,7 +71,7 @@ class OAuthHelperServiceProvider extends ServiceProvider {
             idTokenSessionKey: (string) config('oauth-helper.sso.id_token_session_key'),
         ));
 
-        $this->app->singleton(Keycloak::class);
+        $this->app->singleton(OAuth::class);
     }
 
     public function boot(): void {
@@ -89,14 +90,14 @@ class OAuthHelperServiceProvider extends ServiceProvider {
     }
 
     protected function registerGuards(): void {
-        Auth::extend('keycloak', function (Application $app) {
+        Auth::extend('oauth', function (Application $app) {
             $guard = new BearerGuard($app['request'], $app->make(TokenVerifier::class), ApiAudience::matches(...));
             $app->refresh('request', $guard, 'setRequest');
 
             return $guard;
         });
 
-        Auth::extend('keycloak-mcp', function (Application $app) {
+        Auth::extend('oauth-mcp', function (Application $app) {
             $guard = new McpGuard($app['request'], $app->make(TokenVerifier::class));
             $app->refresh('request', $guard, 'setRequest');
 
@@ -106,8 +107,9 @@ class OAuthHelperServiceProvider extends ServiceProvider {
 
     protected function registerRoutes(): void {
         /*
-         * Keycloak's back-channel logout endpoint. Register it outside the web middleware group:
-         * Keycloak sends no cookies or CSRF token. Set the URL as "Backchannel logout URL" of the client.
+         * Back-channel logout endpoint (OpenID Connect Back-Channel Logout 1.0). Register it outside the web
+         * middleware group: the server sends no cookies or CSRF token. With Keycloak, set the URL as the
+         * client's "Backchannel logout URL".
          */
         Route::macro('oidcBackchannelLogout', function (string $uri = 'auth/sso/backchannel-logout') {
             return Route::post($uri, BackchannelLogoutController::class)->name('sso.backchannel-logout');

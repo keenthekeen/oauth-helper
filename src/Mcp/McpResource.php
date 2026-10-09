@@ -2,7 +2,7 @@
 
 namespace Keenthekeen\OAuthHelper\Mcp;
 
-use Keenthekeen\OAuthHelper\Realm;
+use Keenthekeen\OAuthHelper\AuthorizationServer;
 
 class McpResource {
     /**
@@ -20,14 +20,14 @@ class McpResource {
     }
 
     /**
-     * OAuth 2.0 Protected Resource Metadata (RFC 9728), pointing MCP clients to Keycloak.
+     * OAuth 2.0 Protected Resource Metadata (RFC 9728), pointing MCP clients to the authorization server.
      *
      * @return array<string, mixed>
      */
     public static function metadata(): array {
         return [
             'resource' => self::url(),
-            'authorization_servers' => [app(Realm::class)->issuer()],
+            'authorization_servers' => [app(AuthorizationServer::class)->issuer()],
             'scopes_supported' => [self::scope()],
             'bearer_methods_supported' => ['header'],
         ];

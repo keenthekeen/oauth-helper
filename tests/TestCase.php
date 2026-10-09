@@ -17,14 +17,14 @@ abstract class TestCase extends Orchestra {
 
     protected function defineEnvironment($app): void {
         $app['config']->set('app.url', 'https://app.test');
-        $app['config']->set('oauth-helper.realm', 'test');
+        $app['config']->set('oauth-helper.issuer', 'https://sso.test/realms/test');
         $app['config']->set('oauth-helper.api.audience', 'test-app');
         $app['config']->set('oauth-helper.clients.default', ['client_id' => 'test-app', 'client_secret' => 'secret']);
-        $app['config']->set('oauth-helper.clients.admin', ['client_id' => 'test-app-admin', 'client_secret' => 'admin-secret']);
+        $app['config']->set('oauth-helper.clients.directory', ['client_id' => 'test-app-directory', 'client_secret' => 'directory-secret']);
         $app['config']->set('oauth-helper.sso.user_model', User::class);
         $app['config']->set('oauth-helper.mcp.user_model', User::class);
-        $app['config']->set('auth.guards.api', ['driver' => 'keycloak']);
-        $app['config']->set('auth.guards.mcp', ['driver' => 'keycloak-mcp']);
+        $app['config']->set('auth.guards.api', ['driver' => 'oauth']);
+        $app['config']->set('auth.guards.mcp', ['driver' => 'oauth-mcp']);
     }
 
     protected function defineDatabaseMigrations(): void {

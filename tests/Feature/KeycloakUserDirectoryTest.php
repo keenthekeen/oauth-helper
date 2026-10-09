@@ -2,13 +2,13 @@
 
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
-use Keenthekeen\OAuthHelper\Admin\KeycloakUser;
-use Keenthekeen\OAuthHelper\Admin\SearchMode;
-use Keenthekeen\OAuthHelper\Exceptions\AdminApiException;
-use Keenthekeen\OAuthHelper\Facades\Keycloak;
-use Keenthekeen\OAuthHelper\Testing\FakeKeycloak;
+use Keenthekeen\OAuthHelper\Directory\DirectoryUser;
+use Keenthekeen\OAuthHelper\Directory\SearchMode;
+use Keenthekeen\OAuthHelper\Exceptions\DirectoryException;
+use Keenthekeen\OAuthHelper\Facades\OAuth;
+use Keenthekeen\OAuthHelper\Testing\FakeOAuthServer;
 
-const ADMIN_URL = 'https://acad-auth.md.chula.ac.th/admin/realms/test';
+const ADMIN_URL = 'https://sso.test/admin/realms/test';
 
 function somchai(array $overrides = []): array {
     return [
@@ -39,17 +39,17 @@ function fakeAdminApi(array $responses): void {
     ]);
 }
 
-it('searches as the admin client and keeps only allowlisted attributes', function () {
+it('searches as the directory client and keeps only allowlisted attributes', function () {
     fakeAdminApi([ADMIN_URL.'/users*' => Http::response([somchai()])]);
 
-    $users = Keycloak::users()->search('Somchai');
+    $users = OAuth::users()->search('Somchai');
 
     expect($users)->toHaveCount(1)
-        ->and($users[0])->toBeInstanceOf(KeycloakUser::class)
+        ->and($users[0])->toBeInstanceOf(DirectoryUser::class)
         ->and($users[0]->attribute('studentId'))->toBe('6430012345')
         ->and($users[0]->attributes)->not->toHaveKey('phone')
         ->and($users[0]->thaiName()?->full())->toBe('สมชาย ใจดี');
-    Http::assertSent(fn (Request $request) => str_contains($request->url(), '/token') and $request['client_id'] === 'test-app-admin');
+    Http::assertSent(fn (Request $request) => str_contains($request->url(), '/token') and $request['client_id'] === 'test-app-directory');
     Http::assertSent(fn (Request $request) => str_starts_with($request->url(), ADMIN_URL.'/users?')
         and $request->hasHeader('Authorization', 'Bearer admin-token')
         and $request['search'] === 'Somchai*'
@@ -60,7 +60,7 @@ it('searches as the admin client and keeps only allowlisted attributes', functio
 it('strips search syntax from the query and applies the mode', function () {
     fakeAdminApi([ADMIN_URL.'/users*' => Http::response([])]);
 
-    Keycloak::users()->search(' "*jai*" ', SearchMode::Infix, max: 500);
+    OAuth::users()->search(' "*jai*" ', SearchMode::Infix, max: 500);
 
     Http::assertSent(fn (Request $request) => str_contains($request->url(), '/users?')
         and $request['search'] === '*jai*'
@@ -68,16 +68,16 @@ it('strips search syntax from the query and applies the mode', function () {
 });
 
 it('refuses short queries', function () {
-    Keycloak::users()->search('**a ');
+    OAuth::users()->search('**a ');
 })->throws(InvalidArgumentException::class, 'Search for at least 3 characters.');
 
 it('caches results briefly', function () {
     fakeAdminApi([ADMIN_URL.'/users*' => Http::response([somchai()])]);
 
-    Keycloak::users()->search('Somchai');
-    Keycloak::users()->search('Somchai');
+    OAuth::users()->search('Somchai');
+    OAuth::users()->search('Somchai');
     $this->travel(61)->seconds();
-    Keycloak::users()->search('Somchai');
+    OAuth::users()->search('Somchai');
 
     Http::assertSentCount(3); // token + 2 searches
 });
@@ -89,7 +89,7 @@ it('finds users', function () {
         ADMIN_URL.'/users?*' => Http::response([somchai()]),
         ADMIN_URL.'/users/count*' => Http::response('7'),
     ]);
-    $directory = Keycloak::users();
+    $directory = OAuth::users();
 
     expect($directory->find('f1d2e3c4-0000-4000-8000-000000000001')?->username)->toBe('6430012345')
         ->and($directory->find('f1d2e3c4-0000-4000-8000-000000000002'))->toBeNull()
@@ -101,7 +101,7 @@ it('finds users', function () {
 });
 
 it('refuses attribute queries it cannot express', function (string $name, string $value) {
-    Keycloak::users()->findByAttribute($name, $value);
+    OAuth::users()->findByAttribute($name, $value);
 })->throws(InvalidArgumentException::class)->with([
     ['studentId', '64300 12345'],
     ['studentId', 'a:b'],
@@ -117,23 +117,23 @@ it('retries once with a fresh token when the token is rejected', function () {
         ADMIN_URL.'/users*' => Http::sequence()->push([], 401)->push([somchai()]),
     ]);
 
-    expect(Keycloak::users()->search('Somchai'))->toHaveCount(1);
+    expect(OAuth::users()->search('Somchai'))->toHaveCount(1);
     Http::assertSent(fn (Request $request) => $request->hasHeader('Authorization', 'Bearer new-token'));
 });
 
 it('explains a missing role', function () {
     fakeAdminApi([ADMIN_URL.'/users*' => Http::response(['error' => 'unknown_error'], 403)]);
 
-    Keycloak::users()->search('Somchai');
-})->throws(AdminApiException::class, 'Check its service-account roles');
+    OAuth::users()->search('Somchai');
+})->throws(DirectoryException::class, 'Check its service-account roles');
 
 it('can be faked in tests', function () {
-    $directory = FakeKeycloak::install()->fakeUsers([somchai(), somchai(['id' => 'x', 'username' => 'somsri', 'firstName' => 'Somsri', 'email' => 'somsri@chula.ac.th'])]);
+    $directory = FakeOAuthServer::install()->fakeUsers([somchai(), somchai(['id' => 'x', 'username' => 'somsri', 'firstName' => 'Somsri', 'email' => 'somsri@chula.ac.th'])]);
 
-    expect(Keycloak::users()->search('soms'))->toHaveCount(1)
-        ->and(Keycloak::users()->search('jaidee'))->toHaveCount(2)
-        ->and(Keycloak::users()->search('aide', SearchMode::Infix))->toHaveCount(2)
-        ->and(Keycloak::users()->findByEmail('SOMSRI@chula.ac.th')?->id)->toBe('x');
+    expect(OAuth::users()->search('soms'))->toHaveCount(1)
+        ->and(OAuth::users()->search('jaidee'))->toHaveCount(2)
+        ->and(OAuth::users()->search('aide', SearchMode::Infix))->toHaveCount(2)
+        ->and(OAuth::users()->findByEmail('SOMSRI@chula.ac.th')?->id)->toBe('x');
     $directory->assertSearched('soms');
     Http::assertNothingSent();
 });

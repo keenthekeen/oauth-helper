@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * A local session and the Keycloak SSO session (sid) it signed in with, for back-channel logout.
+ * A local session and the SSO session (sid) it signed in with, for back-channel logout.
  * A sid may map to several local sessions, one per domain the user signed in on.
  *
  * @property string $session_id

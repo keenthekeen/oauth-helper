@@ -6,15 +6,15 @@ use Illuminate\Contracts\Cache\LockProvider;
 use Illuminate\Contracts\Cache\Repository as Cache;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Factory as Http;
+use Keenthekeen\OAuthHelper\AuthorizationServer;
 use Keenthekeen\OAuthHelper\Exceptions\OAuthHelperException;
 use Keenthekeen\OAuthHelper\Exceptions\TokenRequestException;
-use Keenthekeen\OAuthHelper\Realm;
 
 /**
  * Access tokens for this app's confidential clients (client credentials grant), cached until shortly before they expire.
  */
 class ClientCredentials {
-    /** Cache lifetime when Keycloak does not say how long the token lives */
+    /** Cache lifetime when the server does not say how long the token lives */
     protected const FALLBACK_TTL = 180;
 
     /**
@@ -22,7 +22,7 @@ class ClientCredentials {
      * @param  array<string, mixed>  $httpOptions
      */
     public function __construct(
-        protected Realm $realm,
+        protected AuthorizationServer $server,
         protected Http $http,
         protected Cache $cache,
         protected array $clients,
@@ -33,7 +33,7 @@ class ClientCredentials {
      * Get an access token for the client.
      *
      * @param  string|array<int, string>  $scope  Space-delimited string or list of scopes; none for the client's default scopes
-     * @param  string|null  $resource  RFC 8707 resource indicator: URI of the service the token is for, which Keycloak puts in `aud`
+     * @param  string|null  $resource  RFC 8707 resource indicator: URI of the service the token is for, which the server puts in `aud`
      * @param  string  $client  Name of a client in config('oauth-helper.clients')
      *
      * @throws TokenRequestException|ConnectionException
@@ -71,10 +71,10 @@ class ClientCredentials {
     protected function requestToken(string $key, string $client, string $scope, ?string $resource): string {
         $credentials = $this->clients[$client] ?? null;
         if (empty($credentials['client_id']) or empty($credentials['client_secret'])) {
-            throw new OAuthHelperException("The Keycloak client \"$client\" is not configured.");
+            throw new OAuthHelperException("The OAuth client \"$client\" is not configured.");
         }
 
-        $response = $this->http->withOptions($this->httpOptions)->asForm()->acceptJson()->post($this->realm->tokenEndpoint(), array_filter([
+        $response = $this->http->withOptions($this->httpOptions)->asForm()->acceptJson()->post($this->server->tokenEndpoint(), array_filter([
             'grant_type' => 'client_credentials',
             'client_id' => $credentials['client_id'],
             'client_secret' => $credentials['client_secret'],
@@ -85,7 +85,7 @@ class ClientCredentials {
         $token = $response->json('access_token');
         if (! $response->successful() or ! is_string($token) or $token === '') {
             $error = $response->json('error_description') ?? $response->json('error') ?? 'no access_token';
-            throw new TokenRequestException("Keycloak refused the client credentials grant for \"$client\" (HTTP {$response->status()}): $error");
+            throw new TokenRequestException("The authorization server refused the client credentials grant for \"$client\" (HTTP {$response->status()}): $error");
         }
 
         $expiresIn = (int) $response->json('expires_in', 0);

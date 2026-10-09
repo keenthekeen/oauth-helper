@@ -1,19 +1,39 @@
 <?php
 
-use Keenthekeen\OAuthHelper\Realm;
+use Keenthekeen\OAuthHelper\AuthorizationServer;
+use Keenthekeen\OAuthHelper\Directory\Keycloak\KeycloakAdminClient;
+use Keenthekeen\OAuthHelper\Exceptions\DirectoryException;
+use Keenthekeen\OAuthHelper\Exceptions\OAuthHelperException;
 use Keenthekeen\OAuthHelper\Token\Scopes;
 use Keenthekeen\OAuthHelper\Token\StrongAuth;
 use Keenthekeen\OAuthHelper\Token\Url;
 
-it('derives the realm URLs', function () {
-    $realm = new Realm('https://sso.test/', 'med');
+it('derives endpoints from the issuer', function () {
+    $server = new AuthorizationServer('https://sso.test/realms/med/');
 
-    expect($realm->issuer())->toBe('https://sso.test/realms/med')
-        ->and($realm->jwksUrl())->toBe('https://sso.test/realms/med/protocol/openid-connect/certs')
-        ->and($realm->tokenEndpoint())->toBe('https://sso.test/realms/med/protocol/openid-connect/token')
-        ->and($realm->adminUrl('users/count'))->toBe('https://sso.test/admin/realms/med/users/count')
-        ->and((new Realm('https://sso.test', 'med', 'https://proxy.test/realms/med'))->issuer())->toBe('https://proxy.test/realms/med');
+    expect($server->issuer())->toBe('https://sso.test/realms/med')
+        ->and($server->jwksUrl())->toBe('https://sso.test/realms/med/protocol/openid-connect/certs')
+        ->and($server->tokenEndpoint())->toBe('https://sso.test/realms/med/protocol/openid-connect/token');
 });
+
+it('uses configured endpoints', function () {
+    $server = new AuthorizationServer('https://auth.test', 'https://auth.test/.well-known/jwks.json', 'https://auth.test/oauth/token');
+
+    expect($server->jwksUrl())->toBe('https://auth.test/.well-known/jwks.json')
+        ->and($server->tokenEndpoint())->toBe('https://auth.test/oauth/token');
+});
+
+it('requires an issuer', function () {
+    (new AuthorizationServer(null))->issuer();
+})->throws(OAuthHelperException::class);
+
+it('derives the Keycloak admin URL from the issuer', function () {
+    expect(KeycloakAdminClient::adminUrlFromIssuer('https://sso.test/realms/med'))->toBe('https://sso.test/admin/realms/med');
+});
+
+it('refuses to derive an admin URL from another issuer', function () {
+    KeycloakAdminClient::adminUrlFromIssuer('https://auth.test');
+})->throws(DirectoryException::class);
 
 it('collects scopes from scope and scp', function () {
     expect(Scopes::fromClaims(['scope' => 'openid  b a', 'scp' => ['c', 'a', 1]]))->toBe(['a', 'b', 'c', 'openid'])
