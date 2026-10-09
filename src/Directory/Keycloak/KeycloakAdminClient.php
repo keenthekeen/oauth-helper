@@ -9,8 +9,8 @@ use Keenthekeen\OAuthHelper\Client\ClientCredentials;
 use Keenthekeen\OAuthHelper\Exceptions\DirectoryException;
 
 /**
- * Read-only access to the Keycloak Admin REST API of one realm, authenticated as the directory client's service
- * account. Give that client only the realm-management roles it needs (view-users for the user directory).
+ * Read-only access to the Keycloak Admin REST API of one realm, authenticated as a client's service account.
+ * The user directory needs the realm-management "view-users" role on that service account.
  */
 class KeycloakAdminClient {
     /**
@@ -20,7 +20,7 @@ class KeycloakAdminClient {
         protected string $adminUrl,
         protected ClientCredentials $credentials,
         protected Http $http,
-        protected string $client = 'directory',
+        protected string $client = 'default',
         protected array $httpOptions = [],
     ) {
         $this->adminUrl = rtrim($adminUrl, '/');
@@ -58,7 +58,7 @@ class KeycloakAdminClient {
         }
         if (! $response->successful()) {
             throw new DirectoryException(match ($response->status()) {
-                401, 403 => 'The directory client is not allowed to read '.$path.'. Check its service-account roles.',
+                401, 403 => "The OAuth client \"{$this->client}\" is not allowed to read $path. Check its service-account roles.",
                 default => 'The Keycloak Admin API failed to read '.$path.'.',
             }." (HTTP {$response->status()})", $response->status());
         }

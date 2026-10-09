@@ -34,8 +34,6 @@ OAUTH_ISSUER=https://sso.example.com/realms/main   # `iss` of the server's token
 OAUTH_CLIENT_ID=...                  # this app's client
 OAUTH_CLIENT_SECRET=...
 OAUTH_API_AUDIENCE=...               # defaults to OAUTH_CLIENT_ID
-OAUTH_DIRECTORY_CLIENT_ID=...        # only for the user directory, see below
-OAUTH_DIRECTORY_CLIENT_SECRET=...
 OAUTH_SSO_SESSION_MAX=36000          # longest SSO session (Keycloak: SSO Session Max), in seconds
 ```
 
@@ -134,9 +132,10 @@ and back-channel logout must destroy all of them.
 `UserDirectory` is the contract; `Directory\Keycloak\KeycloakUserDirectory` implements it over the Keycloak Admin
 REST API and is bound by default. Another server can be supported by binding another implementation.
 
-For Keycloak, create a **separate** confidential client for each app (e.g. `myapp-directory`) with *Service accounts* enabled, and
-give its service account only `realm-management` → `view-users`. Do not reuse the login client, and never grant
-`manage-users` for searching.
+The directory authenticates as the app's own client (`OAUTH_CLIENT_ID`). For Keycloak, enable *Service accounts* on it
+and give its service account `realm-management` → `view-users`; never grant `manage-users` for searching. Note that
+anyone holding that client's secret can then read the whole realm's users. To limit that, add a separate client under
+`oauth-helper.clients` with only this role and select it with `oauth-helper.directory.client`.
 
 ```php
 use Keenthekeen\OAuthHelper\Directory\SearchMode;

@@ -31,7 +31,7 @@ it('caches the token per client, scope and resource', function () {
     expect(OAuth::token('b a'))->toBe('token-1')
         ->and(OAuth::token(['a', 'b']))->toBe('token-1')
         ->and(OAuth::token(['a', 'b'], 'https://precede.test'))->toBe('token-2')
-        ->and(OAuth::token(['a', 'b'], client: 'directory'))->toBe('token-3');
+        ->and(OAuth::token(['a', 'b'], client: 'other'))->toBe('token-3');
     Http::assertSentCount(3);
 });
 

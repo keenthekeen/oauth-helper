@@ -39,7 +39,7 @@ function fakeAdminApi(array $responses): void {
     ]);
 }
 
-it('searches as the directory client and keeps only allowlisted attributes', function () {
+it('searches as the app\'s client and keeps only allowlisted attributes', function () {
     fakeAdminApi([ADMIN_URL.'/users*' => Http::response([somchai()])]);
 
     $users = OAuth::users()->search('Somchai');
@@ -49,12 +49,21 @@ it('searches as the directory client and keeps only allowlisted attributes', fun
         ->and($users[0]->attribute('studentId'))->toBe('6430012345')
         ->and($users[0]->attributes)->not->toHaveKey('phone')
         ->and($users[0]->thaiName()?->full())->toBe('สมชาย ใจดี');
-    Http::assertSent(fn (Request $request) => str_contains($request->url(), '/token') and $request['client_id'] === 'test-app-directory');
+    Http::assertSent(fn (Request $request) => str_contains($request->url(), '/token') and $request['client_id'] === 'test-app');
     Http::assertSent(fn (Request $request) => str_starts_with($request->url(), ADMIN_URL.'/users?')
         and $request->hasHeader('Authorization', 'Bearer admin-token')
         and $request['search'] === 'Somchai*'
         and $request['max'] === 50
         and $request['first'] === 0);
+});
+
+it('can search as another client', function () {
+    config(['oauth-helper.directory.client' => 'other']);
+    fakeAdminApi([ADMIN_URL.'/users*' => Http::response([])]);
+
+    OAuth::users()->search('Somchai');
+
+    Http::assertSent(fn (Request $request) => str_contains($request->url(), '/token') and $request['client_id'] === 'other-app');
 });
 
 it('strips search syntax from the query and applies the mode', function () {

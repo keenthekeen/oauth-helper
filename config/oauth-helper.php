@@ -37,11 +37,10 @@ return [
     |--------------------------------------------------------------------------
     |
     | Clients this app authenticates as with the client credentials grant.
-    | "default" is the app's own client, used for calls to other services.
-    | "directory" is a separate client allowed only to read users, used by the
-    | user directory (with Keycloak: the realm-management "view-users"
-    | service-account role). Keep it separate so that the login client's
-    | secret cannot read the whole directory.
+    | "default" is the app's own client, used for calls to other services and
+    | by the user directory (with Keycloak, give its service account the
+    | realm-management "view-users" role). Add more clients here and pass
+    | `client: 'name'` to use them.
     |
     */
 
@@ -49,10 +48,6 @@ return [
         'default' => [
             'client_id' => env('OAUTH_CLIENT_ID'),
             'client_secret' => env('OAUTH_CLIENT_SECRET'),
-        ],
-        'directory' => [
-            'client_id' => env('OAUTH_DIRECTORY_CLIENT_ID'),
-            'client_secret' => env('OAUTH_DIRECTORY_CLIENT_SECRET'),
         ],
     ],
 
@@ -132,7 +127,8 @@ return [
     */
 
     'directory' => [
-        'client' => 'directory',
+        // Client from `clients` whose service account reads users
+        'client' => 'default',
         'keycloak_admin_url' => env('KEYCLOAK_ADMIN_URL'),
         'timeout' => 5,
         // Hard limit on results per search, whatever the caller asks for

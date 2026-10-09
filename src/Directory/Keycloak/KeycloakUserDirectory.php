@@ -12,7 +12,7 @@ use Keenthekeen\OAuthHelper\Directory\UserDirectory;
 
 /**
  * User directory backed by the Keycloak Admin REST API (GET /admin/realms/{realm}/users).
- * The directory client needs the realm-management "view-users" role, and nothing more.
+ * The client's service account needs the realm-management "view-users" role.
  */
 class KeycloakUserDirectory implements UserDirectory {
     /**

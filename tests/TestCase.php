@@ -20,7 +20,7 @@ abstract class TestCase extends Orchestra {
         $app['config']->set('oauth-helper.issuer', 'https://sso.test/realms/test');
         $app['config']->set('oauth-helper.api.audience', 'test-app');
         $app['config']->set('oauth-helper.clients.default', ['client_id' => 'test-app', 'client_secret' => 'secret']);
-        $app['config']->set('oauth-helper.clients.directory', ['client_id' => 'test-app-directory', 'client_secret' => 'directory-secret']);
+        $app['config']->set('oauth-helper.clients.other', ['client_id' => 'other-app', 'client_secret' => 'other-secret']);
         $app['config']->set('oauth-helper.directory.attributes', ['studentId', 'first_name', 'last_name']);
         $app['config']->set('oauth-helper.sso.user_model', User::class);
         $app['config']->set('oauth-helper.mcp.user_model', User::class);
