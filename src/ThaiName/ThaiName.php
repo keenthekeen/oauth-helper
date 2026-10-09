@@ -54,7 +54,7 @@ final readonly class ThaiName implements Stringable {
     }
 
     /**
-     * Does the text contain a replacement character (U+FFFD)? A few CUNET accounts have a wrongly encoded Thai name.
+     * Does the text contain a replacement character (U+FFFD)? Some upstream directories hold wrongly encoded Thai names.
      */
     public static function hasEncodingFault(string $text): bool {
         return str_contains($text, "\u{FFFD}");

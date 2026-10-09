@@ -1,31 +1,26 @@
 # keenthekeen/oauth-helper
 
-OAuth 2.0 / OpenID Connect helpers shared by the Laravel apps (Precede, Coop, Rollcall, FlickMan). They work with any
-standard authorization server; only the user directory is Keycloak-specific, and endpoint defaults follow Keycloak's layout.
+OAuth 2.0 / OpenID Connect helpers for Laravel apps that sign users in with, and call each other through, a shared
+authorization server. They work with any standard server; only the user directory is Keycloak-specific, and endpoint
+defaults follow Keycloak's layout.
 
 Names follow one rule: anything that works with any OAuth server says *OAuth* (or nothing); only code calling
 Keycloak-only APIs says *Keycloak* (`Directory\Keycloak\*`).
 
-| Module | What it replaces |
+| Module | Provides |
 |---|---|
-| `Token` – `TokenVerifier`, `Scopes`, `StrongAuth` | `App\Auth\JwtVerifier`, `OAuthGuard::extractScopes()`, `isStrongAuth()` / `Helper::isStrongAuthClaims()` |
-| `Guard` – auth driver `oauth` | `App\Auth\OAuthGuard` + `ApiClient`, `overtrue/laravel-keycloak-guard` |
-| `Client` – `ClientCredentials`, `ServiceClient` | `Helper::retrieveOAuthClientAccessToken()`, `Helper::queryGraphQLEndpoint()` |
-| `Sso` – `OidcSessionRegistry`, back-channel logout | `OidcSession` model/migration, `SSOController::rememberOidcSession()`, `handleBackchannelLogout()` |
-| `Directory` – `UserDirectory`, implemented over the Keycloak Admin REST API | `keycloak:*` commands' hand-written HTTP calls |
-| `ThaiName` | name sync in `SSOController::callback()`, `splitFullName()`, `Helper::checkEncodingFault()` |
-| `Mcp` – auth driver `oauth-mcp`, RFC 9728 metadata | `App\Auth\McpOAuthGuard`, `ProtectedResourceMetadataController` |
-| `Testing` – `FakeOAuthServer`, `FakeUserDirectory` | RSA key / JWKS / signed-token setup copied into test files |
+| `Token` | `TokenVerifier` (JWKS signature, time claims, issuer, audience), `Scopes`, `StrongAuth` |
+| `Guard` | Auth driver `oauth`: other services calling this app's API with client-credentials access tokens |
+| `Client` | `ClientCredentials` (cached tokens per client, scope and RFC 8707 resource), `ServiceClient` (HTTP/GraphQL calls) |
+| `Sso` | Optional. SSO session tracking, OIDC back-channel logout endpoint, RP-initiated logout URL |
+| `Directory` | `UserDirectory` user search, implemented over the Keycloak Admin REST API |
+| `ThaiName` | Splitting, claims parsing and login name-sync for Thai first and last names |
+| `Mcp` | Auth driver `oauth-mcp` for user-delegated MCP tokens, RFC 9728 protected resource metadata |
+| `Testing` | `FakeOAuthServer` (signed tokens, token endpoint fake), `FakeUserDirectory` |
 
 Requires PHP 8.3+ and Laravel 13.
 
 ## Installation
-
-```json
-"repositories": [
-    {"type": "vcs", "url": "https://github.com/keenthekeen/oauth-helper.git"}
-],
-```
 
 ```bash
 composer require keenthekeen/oauth-helper
@@ -35,7 +30,7 @@ php artisan vendor:publish --tag=oauth-helper-config   # optional
 ### Environment
 
 ```dotenv
-OAUTH_ISSUER=https://acad-auth.md.chula.ac.th/realms/...   # `iss` of the server's tokens
+OAUTH_ISSUER=https://sso.example.com/realms/main   # `iss` of the server's tokens
 OAUTH_CLIENT_ID=...                  # this app's client
 OAUTH_CLIENT_SECRET=...
 OAUTH_API_AUDIENCE=...               # defaults to OAUTH_CLIENT_ID
@@ -49,8 +44,7 @@ OAUTH_SSO_SESSION_MAX=36000          # longest SSO session (Keycloak: SSO Sessio
 derived from a Keycloak issuer (`{base}/realms/{realm}` → `{base}/admin/realms/{realm}`) unless `KEYCLOAK_ADMIN_URL`
 is set.
 
-The apps currently set `KEYCLOAK_*` variables; rename them in each deployment when adopting the package, or map them
-in a published `config/oauth-helper.php`.
+To keep existing variable names, publish the config and read them there.
 
 ## API guard
 
@@ -75,13 +69,13 @@ token leaves the request unauthenticated (401) instead of throwing.
 use Keenthekeen\OAuthHelper\Facades\OAuth;
 
 // Token cached per client, scope and resource until shortly before it expires
-$token = OAuth::token('students_exam', resource: config('services.precede.url'));
+$token = OAuth::token('orders:read', resource: 'https://orders.example.com');
 
 // Pending request with the token, JSON headers and the configured timeouts
-$response = OAuth::http('students_basic')->post(config('services.coop.url').'/graphql', [...]);
+$response = OAuth::http('customers:read')->get('https://crm.example.com/api/customers');
 
 // GraphQL shortcut
-$response = OAuth::graphql(config('services.coop.url').'/graphql', $query, ['first' => 100], scope: 'students_basic');
+$response = OAuth::graphql('https://crm.example.com/graphql', $query, ['first' => 100], scope: 'customers:read');
 $users = $response->json('data.users');
 ```
 
@@ -89,6 +83,8 @@ $users = $response->json('data.users');
 Add more clients under `oauth-helper.clients` and pass `client: 'name'`.
 
 ## Single sign-on
+
+This module is optional: apps with working session tracking and back-channel logout of their own can keep it.
 
 The login flow stays a Socialite driver (`oidc_keycloak` from `socialiteproviders/openidconnect`) and the callback
 stays in the app, since user provisioning differs per app. The package handles what is around it:
@@ -129,17 +125,16 @@ then set `https://app/auth/sso/backchannel-logout` as the client's back-channel 
 Route::oidcBackchannelLogout(); // POST auth/sso/backchannel-logout, named sso.backchannel-logout
 ```
 
-Migration: `php artisan vendor:publish --tag=oauth-helper-migrations`. Apps that already have `oidc_sessions` keyed by
-`sid` (Coop, Rollcall) should switch the primary key to `session_id` instead, so that signing in on several domains
-with the same SSO session keeps one row per local session. The rows are short-lived, so dropping and recreating the
-table is acceptable: only sessions started before the deploy lose back-channel logout.
+Migration: `php artisan vendor:publish --tag=oauth-helper-migrations`. The `oidc_sessions` table is keyed by the local
+session ID, not by `sid`: an app served on several domains gets one local session per domain for the same SSO session,
+and back-channel logout must destroy all of them.
 
 ## User directory
 
 `UserDirectory` is the contract; `Directory\Keycloak\KeycloakUserDirectory` implements it over the Keycloak Admin
 REST API and is bound by default. Another server can be supported by binding another implementation.
 
-For Keycloak, create a **separate** confidential client for each app (e.g. `precede-directory`) with *Service accounts* enabled, and
+For Keycloak, create a **separate** confidential client for each app (e.g. `myapp-directory`) with *Service accounts* enabled, and
 give its service account only `realm-management` → `view-users`. Do not reuse the login client, and never grant
 `manage-users` for searching.
 
@@ -148,17 +143,17 @@ use Keenthekeen\OAuthHelper\Directory\SearchMode;
 
 $users = OAuth::users()->search('somchai');                    // prefix match on username, email, first/last name
 $users = OAuth::users()->search('jaidee', SearchMode::Infix, max: 20);
-$user = OAuth::users()->findByUsername('6430012345');
-$user = OAuth::users()->findByEmail('someone@chula.ac.th');
-$users = OAuth::users()->findByAttribute('studentId', '6430012345');
+$user = OAuth::users()->findByUsername('jdoe');
+$user = OAuth::users()->findByEmail('jdoe@example.com');
+$users = OAuth::users()->findByAttribute('employeeId', 'E12345');
 $count = OAuth::users()->count('somchai');
 
-$user->email; $user->attribute('studentId'); $user->thaiName()?->full();
+$user->email; $user->attribute('employeeId'); $user->thaiName()?->full();
 ```
 
 - Wildcards and quotes typed by users are stripped; the matching is chosen with `SearchMode` only.
 - Queries shorter than `directory.min_query_length` throw `InvalidArgumentException`; results are capped at `directory.max_results`.
-- Only attributes listed in `directory.attributes` leave the package.
+- Only attributes listed in `directory.attributes` leave the package (add e.g. `employeeId` to read it).
 - Results are cached for `directory.cache_ttl` seconds (0 disables).
 - `DirectoryException` is thrown when the directory refuses (e.g. a missing role) or cannot be reached.
 
@@ -174,7 +169,7 @@ Check against your Keycloak realm whether a Thai-name search finds anyone before
 ThaiName::split('สมศรี ณ อยุธยา');            // first: สมศรี, last: ณ อยุธยา
 ThaiName::fromClaims($claims)?->full();       // from the thai_names client scope, null if missing or corrupted
 ThaiName::preferredName($user->name, $claims); // name to save on login, or null to keep the stored one
-ThaiName::hasEncodingFault($text);             // U+FFFD in a wrongly encoded CUNET name
+ThaiName::hasEncodingFault($text);             // U+FFFD in a wrongly encoded name from an upstream directory
 ```
 
 Claim and attribute names are configured in `oauth-helper.thai_name` (`first_name`, `last_name` by default).
@@ -218,7 +213,7 @@ it('serves an MCP client', function () {
 });
 
 it('searches users', function () {
-    $directory = $this->server->fakeUsers([['username' => 'somchai', 'email' => 'somchai@chula.ac.th']]);
+    $directory = $this->server->fakeUsers([['username' => 'somchai', 'email' => 'somchai@example.com']]);
     // ...
     $directory->assertSearched('somchai');
 });

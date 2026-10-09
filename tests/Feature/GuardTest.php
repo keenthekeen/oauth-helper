@@ -78,17 +78,17 @@ describe('API guard', function () {
 });
 
 describe('MCP guard', function () {
-    beforeEach(fn () => User::create(['name' => 'Somchai', 'email' => 'somchai@chula.ac.th']));
+    beforeEach(fn () => User::create(['name' => 'Somchai', 'email' => 'somchai@example.com']));
 
     it('authenticates the user of a delegated token', function () {
-        $this->withToken($this->server->mcpToken('somchai@chula.ac.th', strongAuth: true))
+        $this->withToken($this->server->mcpToken('somchai@example.com', strongAuth: true))
             ->getJson('/mcp-whoami')
             ->assertOk()
-            ->assertExactJson(['email' => 'somchai@chula.ac.th', 'strong' => true]);
+            ->assertExactJson(['email' => 'somchai@example.com', 'strong' => true]);
     });
 
     it('reports a sign-in without strong authentication', function () {
-        $this->withToken($this->server->mcpToken('somchai@chula.ac.th'))
+        $this->withToken($this->server->mcpToken('somchai@example.com'))
             ->getJson('/mcp-whoami')
             ->assertJsonPath('strong', false);
     });
@@ -98,17 +98,17 @@ describe('MCP guard', function () {
             ->getJson('/mcp-whoami')
             ->assertUnauthorized();
     })->with([
-        'for the API' => [fn ($s) => $s->apiToken(claims: ['email' => 'somchai@chula.ac.th', 'scope' => 'mcp:resources'])],
-        'without the MCP scope' => [fn ($s) => $s->mcpToken('somchai@chula.ac.th', claims: ['scope' => 'openid'])],
-        'of an unknown user' => [fn ($s) => $s->mcpToken('stranger@chula.ac.th')],
+        'for the API' => [fn ($s) => $s->apiToken(claims: ['email' => 'somchai@example.com', 'scope' => 'mcp:resources'])],
+        'without the MCP scope' => [fn ($s) => $s->mcpToken('somchai@example.com', claims: ['scope' => 'openid'])],
+        'of an unknown user' => [fn ($s) => $s->mcpToken('stranger@example.com')],
     ]);
 
     it('resolves users with a custom resolver', function () {
         McpGuard::resolveUsersUsing(fn (array $claims) => User::where('name', 'Somchai')->first());
 
-        $this->withToken($this->server->mcpToken('alias@chula.ac.th'))
+        $this->withToken($this->server->mcpToken('alias@example.com'))
             ->getJson('/mcp-whoami')
-            ->assertJsonPath('email', 'somchai@chula.ac.th');
+            ->assertJsonPath('email', 'somchai@example.com');
     });
 
     it('serves the protected resource metadata', function () {

@@ -142,7 +142,7 @@ return [
         // Seconds search results are cached; 0 disables caching
         'cache_ttl' => 60,
         // User attributes exposed on DirectoryUser; all others are dropped
-        'attributes' => ['studentId', 'first_name', 'last_name'],
+        'attributes' => ['first_name', 'last_name'],
     ],
 
     /*

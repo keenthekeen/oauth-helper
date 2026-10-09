@@ -46,7 +46,7 @@ interface UserDirectory {
     public function findByEmail(string $email): ?DirectoryUser;
 
     /**
-     * Users whose attribute equals the value exactly, e.g. findByAttribute('studentId', '6430012345').
+     * Users whose attribute equals the value exactly, e.g. findByAttribute('employeeId', 'E12345').
      *
      * @return Collection<int, DirectoryUser>
      *

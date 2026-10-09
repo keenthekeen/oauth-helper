@@ -8,7 +8,7 @@ use Keenthekeen\OAuthHelper\Tests\Fixtures\User;
 use Laravel\Socialite\Facades\Socialite;
 
 beforeEach(function () {
-    $this->user = User::create(['name' => 'Somchai', 'email' => 'somchai@chula.ac.th']);
+    $this->user = User::create(['name' => 'Somchai', 'email' => 'somchai@example.com']);
     $this->registry = app(OidcSessionRegistry::class);
 });
 

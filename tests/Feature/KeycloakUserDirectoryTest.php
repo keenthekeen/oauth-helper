@@ -14,7 +14,7 @@ function somchai(array $overrides = []): array {
     return [
         'id' => 'f1d2e3c4-0000-4000-8000-000000000001',
         'username' => '6430012345',
-        'email' => '6430012345@student.chula.ac.th',
+        'email' => '6430012345@student.example.com',
         'firstName' => 'Somchai',
         'lastName' => 'Jaidee',
         'enabled' => true,
@@ -94,7 +94,7 @@ it('finds users', function () {
     expect($directory->find('f1d2e3c4-0000-4000-8000-000000000001')?->username)->toBe('6430012345')
         ->and($directory->find('f1d2e3c4-0000-4000-8000-000000000002'))->toBeNull()
         ->and($directory->find('../../clients'))->toBeNull()
-        ->and($directory->findByUsername('6430012345')?->email)->toBe('6430012345@student.chula.ac.th')
+        ->and($directory->findByUsername('6430012345')?->email)->toBe('6430012345@student.example.com')
         ->and($directory->findByAttribute('studentId', '6430012345'))->toHaveCount(1)
         ->and($directory->count('jaidee'))->toBe(7);
     Http::assertSent(fn (Request $request) => ($request['q'] ?? null) === 'studentId:6430012345' and $request['exact'] === 'true');
@@ -128,12 +128,12 @@ it('explains a missing role', function () {
 })->throws(DirectoryException::class, 'Check its service-account roles');
 
 it('can be faked in tests', function () {
-    $directory = FakeOAuthServer::install()->fakeUsers([somchai(), somchai(['id' => 'x', 'username' => 'somsri', 'firstName' => 'Somsri', 'email' => 'somsri@chula.ac.th'])]);
+    $directory = FakeOAuthServer::install()->fakeUsers([somchai(), somchai(['id' => 'x', 'username' => 'somsri', 'firstName' => 'Somsri', 'email' => 'somsri@example.com'])]);
 
     expect(OAuth::users()->search('soms'))->toHaveCount(1)
         ->and(OAuth::users()->search('jaidee'))->toHaveCount(2)
         ->and(OAuth::users()->search('aide', SearchMode::Infix))->toHaveCount(2)
-        ->and(OAuth::users()->findByEmail('SOMSRI@chula.ac.th')?->id)->toBe('x');
+        ->and(OAuth::users()->findByEmail('SOMSRI@example.com')?->id)->toBe('x');
     $directory->assertSearched('soms');
     Http::assertNothingSent();
 });
