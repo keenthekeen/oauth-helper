@@ -1,6 +1,6 @@
 {
     "name": "keenthekeen/oauth-helper",
-    "description": "OAuth 2.0 / OpenID Connect helpers for Laravel apps: bearer-token guard, client-credentials tokens, service-to-service calls, SSO session tracking with back-channel logout, user directory (Keycloak Admin API), Thai names and MCP authorization.",
+    "description": "OAuth 2.0 / OpenID Connect helpers for Laravel apps (internal use)",
     "type": "library",
     "license": "MIT",
     "keywords": ["laravel", "oauth", "oidc", "keycloak", "mcp"],
