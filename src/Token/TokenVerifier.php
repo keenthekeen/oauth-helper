@@ -57,6 +57,30 @@ class TokenVerifier {
     }
 
     /**
+     * Like verify(), but also makes sure the token is an access token and not, say, an ID token that
+     * a client could present as a bearer token. Access tokens carry scopes and, when they have a `typ`
+     * claim at all, `Bearer`; ID tokens are typed `ID` and carry no `scope`.
+     *
+     * @param  string|callable(string): bool|null  $audience
+     * @return array<string, mixed> The token's claims
+     *
+     * @throws InvalidTokenException
+     */
+    public function verifyAccessToken(string $jwt, string|callable|null $audience = null): array {
+        $claims = $this->verify($jwt, $audience);
+
+        if (isset($claims['typ']) && (! is_string($claims['typ']) || strcasecmp($claims['typ'], 'Bearer') !== 0)) {
+            throw new InvalidTokenException('Not an access token.');
+        }
+
+        if (Scopes::fromClaims($claims) === []) {
+            throw new InvalidTokenException('Not an access token: no scopes.');
+        }
+
+        return $claims;
+    }
+
+    /**
      * Decode the token and validate its signature and time claims only.
      *
      * @return array<string, mixed>

@@ -88,7 +88,7 @@ class FakeOAuthServer {
         return $this->token([
             'aud' => [config('oauth-helper.api.audience') ?? config('app.url')],
             'azp' => $clientId,
-            'scope' => implode(' ', $scopes),
+            'scope' => implode(' ', $scopes ?: ['profile']),
             ...$claims,
         ]);
     }

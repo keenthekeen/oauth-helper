@@ -57,7 +57,7 @@ class McpGuard implements Guard {
         }
 
         try {
-            $claims = $this->verifier->verify($token, McpResource::url());
+            $claims = $this->verifier->verifyAccessToken($token, McpResource::url());
         } catch (InvalidTokenException) {
             return null;
         }

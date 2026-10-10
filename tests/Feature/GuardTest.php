@@ -63,6 +63,9 @@ describe('API guard', function () {
         'for another client' => [['aud' => ['account', 'other-app']]],
         'for the MCP server' => [['aud' => 'https://app.test/mcp']],
         'without azp' => [['azp' => null]],
+        'that is an ID token' => [['typ' => 'ID']],
+        'that is a refresh token' => [['typ' => 'Refresh']],
+        'without scopes' => [['scope' => '']],
         'expired' => [['exp' => time() - 3600]],
     ]);
 

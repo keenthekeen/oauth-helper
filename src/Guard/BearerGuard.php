@@ -43,7 +43,7 @@ class BearerGuard implements Guard {
         }
 
         try {
-            $claims = $this->verifier->verify($token, $this->audience);
+            $claims = $this->verifier->verifyAccessToken($token, $this->audience);
         } catch (InvalidTokenException) {
             return null;
         }
